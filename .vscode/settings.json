@@ -1,0 +1,5 @@
+{
+  "python.pythonPath": "/Users/edwardsmith/.pyenv/versions/3.11.4/envs/500hats/bin/python",
+  "editor.formatOnSave": true,
+  "python.formatting.provider": "black"
+}
