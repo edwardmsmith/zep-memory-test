@@ -2,7 +2,9 @@ import os
 import re
 from typing import List
 import openai
-from dotenv import load_dotenv
+
+import chainlit as cl
+
 from zep_python import (
     MemorySearchPayload,
     ZepClient,
@@ -11,8 +13,6 @@ from zep_python import (
     NotFoundError,
     MemorySearchResult,
 )
-
-load_dotenv()
 
 
 def open_file(filepath):
@@ -47,7 +47,7 @@ def get_base_prompt():
 
 def build_prompt(user_input: str) -> List:
     prompt = get_base_prompt()
-    prompt.extend(get_old_memories())
+    prompt.extend(get_old_memories(user_input))
     prompt.append({"role": "system", "content": "Current conversation: \n"})
     prompt.append({"role": "user", "content": user_input})
     # print("===================================================")
@@ -56,7 +56,7 @@ def build_prompt(user_input: str) -> List:
     return prompt
 
 
-def get_old_memories(relevancy_threshold=0.75, quantity=10) -> List:
+def get_old_memories(user_input: str, relevancy_threshold=0.75, quantity=10) -> List:
     conversation = []
     ### Get relevant memories via search
     try:
@@ -133,19 +133,32 @@ def query_chat(prompt: List) -> str:
     return response_text
 
 
-if __name__ == "__main__":
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    session_id = "2"
-    zep = ZepClient("http://localhost:8000")
+@cl.on_message
+async def main(message: str):
+    # if len(message) < 1:
+    #     return
+    prompt = build_prompt(message)
 
-    while True:
-        user_input = input("\n\nUser: ")
+    # response_text = query_chat(prompt)
 
-        if len(user_input) < 1:
-            continue
+    msg = cl.Message(
+        content="",
+    )
 
-        prompt = build_prompt(user_input)
-        response_text = query_chat(prompt)
-        remember_interaction(user_input, response_text)
+    async for stream_resp in await openai.ChatCompletion.acreate(
+        model="gpt-3.5-turbo",
+        temperature=0.5,
+        messages=prompt,
+        stream=True,
+    ):
+        token = stream_resp.choices[0]["delta"].get("content", "")
+        await msg.stream_token(token)
 
-        print(response_text)
+    remember_interaction(message, msg.content)
+
+    await msg.send()
+
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
+session_id = "2"
+zep = ZepClient("http://localhost:8000")
