@@ -1,3 +1,6 @@
+# Specific
+logs/
+
 # General
 .DS_Store
 .AppleDouble
