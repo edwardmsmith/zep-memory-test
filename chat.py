@@ -3,6 +3,7 @@ import re
 import json
 from typing import List
 import openai
+from openai import AsyncOpenAI
 import uuid
 import datetime
 
@@ -176,14 +177,15 @@ async def main(message: cl.Message):
         content="",
     )
 
-    async for stream_resp in await openai.ChatCompletion.acreate(
+    stream = await client.chat.completions.create(
         model="gpt-3.5-turbo",
         temperature=0.5,
         messages=prompt,
         stream=True,
-    ):
-        token = stream_resp.choices[0]["delta"].get("content", "")
-        await msg.stream_token(token)
+    )
+    async for part in stream:
+        if token := part.choices[0].delta.content or "":
+            await msg.stream_token(token)
 
     remember_interaction(message.content, msg.content)
     log_interaction(message.content, prompt, msg.content)
@@ -192,5 +194,6 @@ async def main(message: cl.Message):
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+client = AsyncOpenAI()
 session_id = "2"
 zep = ZepClient("http://localhost:8000")
